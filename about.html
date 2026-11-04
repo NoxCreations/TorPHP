@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TorPHP — native Tor v3 client and onion bridge</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-color: #a855f7;
+            --accent-hover: #c084fc;
+            --code-bg: #090d16;
+            --border-color: #334155;
+            --table-header: #1e1b4b;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 2rem 1rem;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+        }
+
+        h1, h2, h3 {
+            color: #f8fafc;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3em;
+            margin-top: 1.8em;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            border-bottom: 2px solid var(--accent-color);
+            margin-top: 0;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+        }
+
+        h4 {
+            font-size: 1.3rem;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            border-bottom: none;
+        }
+
+        a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        code {
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            background-color: var(--code-bg);
+            color: #f1f5f9;
+            padding: 0.2em 0.4em;
+            border-radius: 4px;
+            font-size: 0.9em;
+            border: 1px solid var(--border-color);
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+            border: none;
+            font-size: 0.9em;
+        }
+
+        ul, ol {
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.4rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            overflow-x: auto;
+            display: block;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--table-header);
+            color: #f8fafc;
+        }
+
+        tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        hr {
+            border: 0;
+            height: 1px;
+            background: var(--border-color);
+            margin: 2rem 0;
+        }
+
+        blockquote {
+            margin: 0;
+            padding-left: 1rem;
+            color: var(--text-muted);
+            border-left: 4px solid var(--accent-color);
+        }
+
+        footer {
+            margin-top: 3rem;
+            font-style: italic;
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>TorPHP — native Tor v3 client and onion bridge</h1>
+
+    <center><h4><a href="TorV3PHP.zip">Download</a> | <a href="https://github.com/noxcreations/TorV3PHP">Github</a></h4></center>
+  
+    <p>A pure-PHP Tor client that speaks the Tor protocol itself. It builds real
+    three-hop circuits with <code>CREATE2</code>/ntor, extends them with <code>RELAY_EXTEND2</code>, and
+    loads v3 onion services through descriptor fetch, introduction and rendezvous —
+    with <strong>no <code>tor</code> binary, no SOCKS proxy, no HTTP proxy and no external process</strong>.</p>
+
+    <p>It also ships <code>bridge.php</code>, a small gateway that re-serves <code>.onion</code> pages on the
+    ordinary web with rewritten links, so a normal browser can read onion sites
+    without Tor Browser.</p>
+
+    <p>Verified live against the public network: v3 onion pages return <code>HTTP 200</code>
+    through the full hidden-service flow, clearnet pages load through exit circuits,
+    and <code>https://</code> works over both (self-signed certificates are accepted for
+    <code>.onion</code> only; clearnet certificates are verified normally).</p>
+
+    <hr>
+
+    <h2 id="contents">Contents</h2>
+    <ul>
+        <li><a href="#requirements">Requirements</a></li>
+        <li><a href="#installation">Installation</a></li>
+        <li><a href="#quick-start-library">Quick start (library)</a></li>
+        <li><a href="#the-bridge">The bridge</a></li>
+        <li><a href="#entry-guards">Entry guards</a></li>
+        <li><a href="#redirects">Redirects</a></li>
+        <li><a href="#api-reference">API reference</a></li>
+        <li><a href="#how-it-works">How it works</a></li>
+        <li><a href="#testing">Testing</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#security-notes-and-limitations">Security notes and limitations</a></li>
+        <li><a href="#use-cases">Use cases</a></li>
+        <li><a href="#file-layout">File layout</a></li>
+    </ul>
+
+    <hr>
+
+    <h2 id="requirements">Requirements</h2>
+    <ul>
+        <li><strong>PHP 8.1 or newer</strong> (CLI, PHP-FPM, Apache module or the built-in server).</li>
+        <li>Extensions: <code>openssl</code>, <code>sodium</code>, <code>gmp</code>, <code>hash</code> (built in), <code>zlib</code>.</li>
+        <li>Outbound TCP to Tor ORPorts (commonly 443, 9001, 9030, 9100…) and to directory
+        authorities on 443. No inbound ports are needed.</li>
+        <li>A writable directory for the consensus cache and guard state.</li>
+    </ul>
+    <p>No Composer install, database, Redis, or system packages are required.</p>
+
+    <h2 id="installation">Installation</h2>
+    <p>Unzip the archive anywhere:</p>
+    <pre><code>torphp/
+├── autoload.php      PSR-4 autoloader for Torv3\
+├── bridge.php        web gateway (optional)
+├── README.md
+├── src/              the client
+└── tests/            offline vectors and live smoke tests</code></pre>
+
+    <p>Include the autoloader and use the <code>Torv3\</code> namespace:</p>
+    <pre><code>require '/path/to/torphp/autoload.php';</code></pre>
+
+    <hr>
+
+    <h2 id="quick-start-library">Quick start (library)</h2>
+    <pre><code>&lt;?php
+declare(strict_types=1);
+
+require __DIR__ . '/autoload.php';
+
+use Torv3\TorClient;
+use Torv3\TorException;
+
+// The cache file is created on first use; guards.json is stored next to it.
+$tor = TorClient::create(__DIR__ . '/cache/consensus.json')
+    -&gt;bootstrap();                       // fetch/refresh the consensus (TTL 1h)
+
+try {
+    $page = $tor-&gt;request(
+        'http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/',
+        [
+            'follow_redirects' =&gt; true,  // http -&gt; https on the same onion
+            'timeout' =&gt; 60,
+        ]
+    );
+
+    echo $page['status'], "\n";          // 200
+    echo strlen($page['body']), " bytes\n";
+} catch (TorException $e) {
+    echo 'Tor error: ', $e-&gt;getMessage(), "\n";
+}</code></pre>
+
+    <p>Clearnet is opt-in per request:</p>
+    <pre><code>$res = $tor-&gt;request('https://example.com/', [
+    'allowClearnet' =&gt; true,
+    'timeout' =&gt; 30,
+]);</code></pre>
+
+    <p>A direct onion request when you already have the parts:</p>
+    <pre><code>$res = $tor-&gt;requestOnion('example…56chars….onion', 80, '/path', 60.0);</code></pre>
+
+    <p>Response shape (all requests):</p>
+    <pre><code>[
+    'status'  =&gt; 200,                       // int, upstream HTTP status
+    'headers' =&gt; ['content-type' =&gt; ['text/html']], // lower-case name =&gt; list
+    'body'    =&gt; '…',
+    'url'     =&gt; 'https://…',               // final URL (after redirects if enabled)
+]</code></pre>
+
+    <hr>
+
+    <h2 id="the-bridge">The bridge</h2>
+    <p><code>bridge.php</code> turns the library into a browser-friendly onion gateway.</p>
+
+    <h3>Deploy</h3>
+    <p>Put <code>bridge.php</code>, <code>autoload.php</code> and <code>src/</code> under a web root. The <code>cache/</code>
+    directory is created automatically and must be writable by PHP:</p>
+    <pre><code>mkdir -p cache &amp;&amp; chmod 700 cache</code></pre>
+
+    <p>Local test with the built-in server (the file acts as router):</p>
+    <pre><code>php -S 127.0.0.1:8080 bridge.php
+# open http://127.0.0.1:8080/</code></pre>
+
+    <p>With Apache/Nginx, serve <code>bridge.php</code> as the front controller or call it
+    directly. Both URL forms work:</p>
+    <pre><code>/bridge.php?url=http://example…onion/path
+/bridge.php/http://example…onion/path</code></pre>
+
+    <p><code>https://</code> targets work as well: TLS is negotiated inside the Tor stream, and
+    the onion address authenticates the service (its self-signed certificate is
+    accepted, as in Tor Browser).</p>
+
+    <h3>Configuration</h3>
+    <p>Edit the <code>$config</code> array at the top of <code>bridge.php</code>:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Default</th>
+                <th>Meaning</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>cache_file</code></td>
+                <td><code>__DIR__/cache/consensus.json</code></td>
+                <td>Consensus cache; also determines where <code>guards.json</code> lives</td>
+            </tr>
+            <tr>
+                <td><code>allow</code></td>
+                <td><code>['.onion']</code></td>
+                <td>Host policy. <code>['*']</code> also allows clearnet; suffixes like <code>.example.com</code> are accepted</td>
+            </tr>
+            <tr>
+                <td><code>rate_limit</code></td>
+                <td><code>30</code> requests / <code>60</code> s</td>
+                <td>Per-client-IP limit, stored outside the doc root</td>
+            </tr>
+            <tr>
+                <td><code>timeout</code></td>
+                <td><code>45.0</code></td>
+                <td>Per-request timeout in seconds</td>
+            </tr>
+            <tr>
+                <td><code>max_bytes</code></td>
+                <td><code>8 MiB</code></td>
+                <td>Hard cap on a proxied response body</td>
+            </tr>
+            <tr>
+                <td><code>banner</code></td>
+                <td><code>true</code></td>
+                <td>Inject a small "served via # TorPHP — native Tor v3 client and onion bridge
+
+A pure-PHP Tor client that speaks the Tor protocol itself. It builds real
+three-hop circuits with `CREATE2`/ntor, extends them with `RELAY_EXTEND2`, and
+loads v3 onion services through descriptor fetch, introduction and rendezvous —
+with **no `tor` binary, no SOCKS proxy, no HTTP proxy and no external process**.
+
+It also ships `bridge.php`, a small gateway that re-serves `.onion` pages on the
+ordinary web with rewritten links, so a normal browser can read onion sites
+without Tor Browser.
+
+Verified live against the public network: v3 onion pages return `HTTP 200`
+through the full hidden-service flow, clearnet pages load through exit circuits,
+and `https://` works over both (self-signed certificates are accepted for
+`.onion` only; clearnet certificates are verified normally).
+
+---
+
+## Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Quick start (library)](#quick-start-library)
+- [The bridge](#the-bridge)
+- [Entry guards](#entry-guards)
+- [Redirects](#redirects)
+- [API reference](#api-reference)
+- [How it works](#how-it-works)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Security notes and limitations](#security-notes-and-limitations)
+- [Use cases](#use-cases)
+- [File layout](#file-layout)
+
+---
+
+## Requirements
+
+- **PHP 8.1 or newer** (CLI, PHP-FPM, Apache module or the built-in server).
+- Extensions: `openssl`, `sodium`, `gmp`, `hash` (built in), `zlib`.
+- Outbound TCP to Tor ORPorts (commonly 443, 9001, 9030, 9100…) and to directory
+  authorities on 443. No inbound ports are needed.
+- A writable directory for the consensus cache and guard state.
+
+No Composer install, database, Redis, or system packages are required.
+
+## Installation
+
+Unzip the archive anywhere:
+
+```
+torphp/
+├── autoload.php      PSR-4 autoloader for Torv3\
+├── bridge.php        web gateway (optional)
+├── README.md
+├── src/              the client
+└── tests/            offline vectors and live smoke tests
+```
+
+Include the autoloader and use the `Torv3\` namespace:
+
+```php
+require '/path/to/torphp/autoload.php';
+```
+
+---
+
+## Quick start (library)
+
+```php
+<?php
+declare(strict_types=1);
+
+require __DIR__ . '/autoload.php';
+
+use Torv3\TorClient;
+use Torv3\TorException;
+
+// The cache file is created on first use; guards.json is stored next to it.
+$tor = TorClient::create(__DIR__ . '/cache/consensus.json')
+    ->bootstrap();                       // fetch/refresh the consensus (TTL 1h)
+
+try {
+    $page = $tor->request(
+        'http://duckduckgogg42xjoc72x3sjasowoarfbgcmvfimaftt6twagswzczad.onion/',
+        [
+            'follow_redirects' => true,  // http -> https on the same onion
+            'timeout' => 60,
+        ]
+    );
+
+    echo $page['status'], "\n";          // 200
+    echo strlen($page['body']), " bytes\n";
+} catch (TorException $e) {
+    echo 'Tor error: ', $e->getMessage(), "\n";
+}
+```
+
+Clearnet is opt-in per request:
+
+```php
+$res = $tor->request('https://example.com/', [
+    'allowClearnet' => true,
+    'timeout' => 30,
+]);
+```
+
+A direct onion request when you already have the parts:
+
+```php
+$res = $tor->requestOnion('example…56chars….onion', 80, '/path', 60.0);
+```
+
+Response shape (all requests):
+
+```php
+[
+    'status'  => 200,                       // int, upstream HTTP status
+    'headers' => ['content-type' => ['text/html']], // lower-case name => list
+    'body'    => '…',
+    'url'     => 'https://…',               // final URL (after redirects if enabled)
+]
+```
+
+---
+
+## The bridge
+
+`bridge.php` turns the library into a browser-friendly onion gateway.
+
+### Deploy
+
+Put `bridge.php`, `autoload.php` and `src/` under a web root. The `cache/`
+directory is created automatically and must be writable by PHP:
+
+```bash
+mkdir -p cache && chmod 700 cache
+```
+
+Local test with the built-in server (the file acts as router):
+
+```bash
+php -S 127.0.0.1:8080 bridge.php
+# open http://127.0.0.1:8080/
+```
+
+With Apache/Nginx, serve `bridge.php` as the front controller or call it
+directly. Both URL forms work:
+
+```
+/bridge.php?url=http://example…onion/path
+/bridge.php/http://example…onion/path
+```
+
+`https://` targets work as well: TLS is negotiated inside the Tor stream, and
+the onion address authenticates the service (its self-signed certificate is
+accepted, as in Tor Browser).
+
+### Configuration
+
+Edit the `$config` array at the top of `bridge.php`:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `cache_file` | `__DIR__/cache/consensus.json` | Consensus cache; also determines where `guards.json` lives |
+| `allow` | `['.onion']` | Host policy. `['*']` also allows clearnet; suffixes like `.example.com` are accepted |
+| `rate_limit` | `30` requests / `60` s | Per-client-IP limit, stored outside the doc root |
+| `timeout` | `45.0` | Per-request timeout in seconds |
+| `max_bytes` | `8 MiB` | Hard cap on a proxied response body |
+| `banner` | `true` | Inject a small "served via TorPHP" banner into HTML |
+| `time_limit` | `0` | Seconds allowed for the whole request; `0` removes PHP's limit. A fetch takes 20-60 s, so keep this at `0` or use at least `120` |
+| `deadline` | `55` | Wall-clock budget for one fetch; the bridge returns `504` at the budget. Keep it below the host's PHP/FPM cap |
+| `diagnostics` | `true` | Expose the `?diag=1` environment report |
+
+### What the page does
+
+- **Onion-only by default.** Clearnet targets are refused with `403` unless the
+  policy allows them, so the bridge cannot be used as an open web proxy by
+  accident.
+- **Redirects are followed server-side.** If the onion answers `301`/`302`/…,
+  the client follows it inside the tunnel and the final page is rendered at the
+  bridge URL. The browser receives `200`, not a `Location` header, so it never
+  navigates to another host. Chains are limited to 5 hops and loops are errors.
+- **Every hop is re-checked against the allow policy**, so an onion cannot
+  redirect the bridge to the clearnet when clearnet is disabled.
+- **Links, forms and CSS are rewritten** to stay on the bridge. Relative links
+  are resolved against the final URL, and clearnet links become bridge URLs
+  that the policy will refuse instead of sending the browser away.
+- **Cookies are namespaced per onion** and stripped of attributes that would
+  leak them to other onions.
+- **Responses are sandboxed** with `Content-Security-Policy: sandbox`, and sent
+  with `no-store`, `nosniff` and `no-referrer`.
+- **Preset targets.** The landing input offers the DuckDuckGo search onion and
+  the CIA's onion site as click/type-ahead suggestions, while still accepting
+  any URL typed by hand.
+- **Guard button.** The landing page has a *Change entry guard* action. It is a
+  `POST` (so crawlers and prefetchers cannot trigger it), rate-limited, and
+  changes state on the server only; the page is re-rendered in place with a
+  confirmation. The new guard can never be the one currently in use.
+
+### Operating notes
+
+- Run the bridge behind HTTPS if it is exposed to the internet.
+- It has no authentication of its own. For a private gateway, add HTTP basic
+  auth or restrict it at the firewall/reverse proxy.
+- Each proxied request builds fresh circuits; there is no page cache.
+- **Raise PHP's execution limit.** Bootstrap, descriptor lookup, rendezvous and
+  the page load all happen in one request and routinely take 20-60 s, well past
+  PHP's web default of 30 s. The bridge calls `set_time_limit(0)` by default;
+  where a host disables that function, set `max_execution_time` to at least
+  120 in `php.ini`. Otherwise the host kills the request mid-flight and returns
+  a bare `500`; when the host refuses `set_time_limit`, the landing page and
+  `?diag=1` show the effective limit so the cause is visible. The bridge also
+  stops at its own `deadline` (55 s by default) and answers `504` with the
+  reason, so a hard host cap does not cut the connection with an empty 500.
+- **Use `?diag=1` when something fails.** It reports the PHP version and
+  limits, whether the required extensions are loaded, cache writability, whether
+  outbound directory TCP is reachable, and the most recent errors (paths
+  masked). Fatals are also converted into a readable `500` page instead of an
+  empty response.
+- PHP workers block while a request is in flight, so concurrency equals the
+  number of PHP-FPM workers.
+
+---
+
+## Entry guards
+
+Like Tor, the client pins one entry guard instead of picking a random first hop
+for every circuit (guard-spec). The guard is chosen from relays with the `Guard`
+flag, persisted in `guards.json`, reused across requests and restarts, and
+dropped automatically if it cannot be reached.
+
+```php
+$newGuard = $tor->changeGuard();   // RelayInfo of the new entry guard
+echo $newGuard->nickname;
+```
+
+Rotation never returns the current guard. It replaces the remembered sample so
+new circuits start at the new guard; circuits already open keep their old one.
+If no alternative guard exists, it throws `TorException` and leaves the current
+guard in place.
+
+Middleware selection and the final hop are still randomized per circuit:
+
+- clearnet: random middle (`Fast`, `Running`) + random exit (`Exit`, `Fast`, `Running`);
+- onion: the last hop is the responsible HSDir, an introduction point or the
+  rendezvous relay — never a clearnet exit.
+
+Unresponsive relays are retried: a circuit that stalls on `EXTEND2` is rebuilt
+with a fresh path up to three times before the request fails.
+
+---
+
+## Redirects
+
+`request()` returns the raw upstream response by default, including `3xx`, so
+callers can decide what to do. Opt in to automatic following:
+
+```php
+$res = $tor->request($url, [
+    'follow_redirects' => true,
+    'max_redirects'    => 5,     // default 5
+]);
+```
+
+- Follows `301`, `302`, `303`, `307`, `308`.
+- Resolves absolute, scheme-relative, root-relative and path-relative
+  `Location` values, collapsing `.`/`..` segments.
+- Rejects loops (`Redirect loop detected at …`) and chains over the limit.
+- Re-checks `allowClearnet` on every hop, so an onion cannot silently send the
+  client to the clearnet.
+- `$res['url']` is the final URL.
+
+`bridge.php` always enables this, which is why onion pages that redirect
+`http → https` render directly in the browser.
+
+---
+
+## API reference
+
+### `Torv3\TorClient`
+
+| Method | Purpose |
+| --- | --- |
+| `create(?string $cacheFile = null): self` | New client. `null` means no on-disk cache |
+| `bootstrap(bool $force = false, int $ttl = 3600, bool $hsdirOnly = false): self` | Load or refresh the consensus. `hsdirOnly` keeps only HSDir relays for onion lookups |
+| `request(string $url, array $options = []): array` | Fetch a URL through Tor (see options below) |
+| `requestOnion(string $host, int $port, string $path, float $timeout = 30.0, bool $tls = false, ?string $clientAuthKey = null, int $maxBytes = 8388608): array` | Full v3 onion flow when the URL is already split |
+| `changeGuard(): RelayInfo` | Rotate the persistent entry guard |
+| `relays(): array` | Consensus relays, keyed by fingerprint |
+| `consensusParams(): array` | Consensus parameters (`hsdir-interval`, spreads, …) |
+| `relayByFingerprint(string $hex): ?RelayInfo` | Look up one relay |
+| `pickPath(int $hops, array $require = [], array $exclude = []): array` | Random path honouring flags |
+| `pickHops(int $count, array $flags, array $exclude = []): array` | Random relays with flags |
+| `buildCircuit(array $hops): Circuit` | Build a circuit over given relays |
+| `responsibleHsdirs(OnionV3 $onion, int $replica): array` | HSDir set for a descriptor replica |
+| `relayFromLinkSpecifiers(array $specs): ?RelayInfo` | Map descriptor link specifiers to a relay |
+
+Lower-level building blocks are available too: `Torv3\Circuit\Circuit`,
+`Torv3\Onion\OnionV3`, `Torv3\Directory\DirectoryFetcher`,
+`Torv3\Link\LinkSession`, `Torv3\Transport\TlsStream` and
+`Torv3\Bridge\Rewriter`.
+
+### Request options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `allowClearnet` | `false` | Permit non-`.onion` hosts |
+| `timeout` | `30.0` | Seconds per network operation |
+| `deadline` | none | Absolute `microtime(true)` deadline; every wait is clamped to it and a `TorException` is thrown when it expires |
+| `max_bytes` | `8388608` | Response body cap (onion and clearnet) |
+| `client_auth_key` | `null` | 32 raw bytes or base64 x25519 key for authorized onions |
+| `follow_redirects` | `false` | Follow `3xx` responses |
+| `max_redirects` | `5` | Redirect chain limit |
+
+### Exceptions
+
+All errors derive from `Torv3\TorException`:
+`TorProtocolException`, `TorConnectionException`, `TorDirectoryException`,
+`TorNetworkException`, `TorOnionException`, `TorStreamException`.
+They carry no relay addresses in the bridge's user-facing messages.
+
+---
+
+## How it works
+
+1. **Directory.** Fetch a microdescriptor consensus from the authorities,
+   verify the signatures, parse relays, flags, ntor onion keys and consensus
+   parameters (including `hsdir-interval`, replica/spread counts and the shared
+   random value). Results are cached as gzipped JSON.
+2. **Link.** Open a TLS connection to a guard, negotiate a link version
+   (v3/v4, 4-byte circuit IDs), exchange `CERTS`/`AUTH_CHALLENGE`/
+   `AUTHENTICATE`/`NETINFO` where required.
+3. **Circuits.** `CREATE2` with the ntor handshake for the first hop, then
+   `RELAY_EXTEND2` + ntor for each further hop, sealing/decrypting relay cells
+   per layer. `RELAY_EARLY` is used only for `EXTEND`. Flow control uses
+   authenticated SENDME v1 cells, and streams are multiplexed on the circuit.
+4. **Streams.** `RELAY_BEGIN` for TCP, `RELAY_BEGIN_DIR` for directory
+   connections. HTTP/1.0 is spoken directly over the stream; `https://` wraps
+   the stream in TLS.
+5. **v3 onion services.**
+   - Decode the 56-character address (pubkey, checksum, version).
+   - Blind the identity key for the current time period and derive the
+     subcredential.
+   - Compute the HSDir ring index from the shared random value (falling back to
+     Tor's deterministic disaster value when the consensus has none), pick the
+     responsible HSDirs and fetch the descriptor by its blinded-key path.
+   - Verify the descriptor's Ed25519 certificate and signature, decrypt the
+     superencrypted and encrypted layers, and parse introduction points.
+   - `ESTABLISH_RENDEZVOUS`, send `INTRODUCE1` (hs-ntor) to an introduction
+     point, wait for `RENDEZVOUS2`, derive the service keys, then `BEGIN` the
+     stream to the onion service and speak HTTP over it.
+6. **Clearnet.** A three-hop circuit ending at a random exit relay, with normal
+   certificate verification for `https://`.
+
+Every request builds new circuits; nothing is shared between requests except
+the consensus cache and the guard choice.
+
+---
+
+## Testing
+
+Offline vectors (no network needed):
+
+```bash
+php tests/run.php            # main suite: 85 checks
+php tests/guard_test.php     # guard stickiness and rotation
+php tests/bridge_test.php    # URL/cookie rewriting rules
+php tests/srv_test.php       # disaster shared-random value
+php tests/onion_vector_test.php  # Tor's own HS vectors
+php tests/tls_test.php       # TLS transport (uses tests/tls_echo_server.php)
+```
+
+Live network smoke test (downloads a consensus and builds circuits):
+
+```bash
+php tests/live_smoke.php
+```
+
+A full live check of both paths looks like this:
+
+```php
+$tor = TorClient::create('/tmp/tor-cache.json')->bootstrap();
+
+$onion = $tor->request('http://duckduckgogg…onion/', [
+    'follow_redirects' => true,
+    'timeout' => 60,
+]);
+echo $onion['status'], ' ', strlen($onion['body']), "\n";   // 200, ~230 KB
+
+$web = $tor->request('http://example.com/', [
+    'allowClearnet' => true,
+    'timeout' => 30,
+]);
+echo $web['status'], "\n";                                  // 200
+```
+
+Live results depend on relay availability. Expect occasional multi-second
+circuit setup; the built-in retry handles one dead middle or exit.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+| --- | --- |
+| `403` from the bridge | Target is not allowed by `$config['allow']`; add a suffix or `'*'` deliberately |
+| Bare `500` or empty response | The host killed the request at its PHP execution limit (default 30 s, a fetch needs 20-60 s). Raise `max_execution_time` / keep `set_time_limit` enabled, then open `?diag=1` |
+| `Bridge error` page | A fatal was turned into a readable 500; `?diag=1` shows the logged cause (missing extension, unwritable cache, blocked egress) |
+| `504` "did not finish within the bridge's … budget" | The fetch hit `deadline`; the onion is slow or the host blocks Tor relay ports. Raise `deadline` only if the host's PHP cap is higher |
+| `404` from every HSDir | Onion service offline, or the network consensus has no shared random value (see below) |
+| `Could not download the descriptor … 404` | Period/SRV mismatch or unpublished service; retry after the next consensus |
+| `Timed out waiting for relay command 15` | A middle relay did not answer `EXTEND2`; the client retries with a new path, increase `timeout` if it persists |
+| `Unable to open TLS connection …` | Guard/relay unreachable from this host; check egress firewall and ORPort reachability |
+| `Descriptor MAC verification failed` | Wrong key material or a corrupt cached consensus — clear `cache/` and retry |
+| `No alternative entry guard is available` | Consensus has too few usable `Guard` relays; refresh with `bootstrap(true)` |
+| Clearnet blocked | Pass `allowClearnet => true` (library) or adjust the bridge policy |
+| `Permission denied` on cache | Make the cache directory writable by the PHP user |
+
+**Shared-random outages.** Tor's hidden-service directory uses a shared random
+value published in the 00:00 UTC consensus. If the network's shared-random run
+fails, the consensus can carry no current/previous value. The client follows
+Tor and falls back to the deterministic disaster value, but onion descriptors may
+be missing network-wide until a later round completes. Clearnet circuits are
+unaffected. This is a network condition, not a client error.
+
+---
+
+## Security notes and limitations
+
+- **Not audited.** Treat this as experimental software; review it before using
+  it where anonymity is critical.
+- **Client, not a service.** It fetches onion services; it cannot host one.
+- **v3 only.** 16-character v2 addresses are not supported.
+- **No SOCKS/HTTP proxy interface.** Use `TorClient` directly or `bridge.php`.
+- **Blocking I/O.** Each PHP worker handles one request at a time.
+- **Onion TLS** accepts self-signed certificates because the onion address
+  authenticates the endpoint (as Tor Browser does). Clearnet TLS is verified
+  against the system CA store.
+- **Client authorization** can consume an existing x25519 key; it does not
+  generate or manage authorized-client key pairs.
+- **The bridge operator can see destinations.** It is a gateway, not a
+  anonymity network for its users. Add authentication/TLS and rate limits
+  before exposing it.
+- **No traffic-analysis resistance beyond Tor's own.** Circuit timing and sizes
+  are ordinary Tor traffic, but the PHP implementation is not hardened against a
+  local observer.
+- **No license file is bundled** with this archive; add one before
+  redistributing.
+
+---
+
+## Use cases
+
+- **Onion access on shared hosting** where installing `tor`, a daemon or a
+  SOCKS proxy is impossible — only PHP and outbound TCP are needed.
+- **Server-side onion fetching**: mirrors, archives, feed readers, uptime and
+  content monitoring, or scheduled jobs that read `.onion` pages.
+- **A team or browser gateway**: let people read onion sites from an ordinary
+  browser through `bridge.php`, with an onion-only policy and per-IP limits.
+- **CI and integration tests** for onion services: assert that a descriptor is
+  published and the service answers, without a tor binary in the image.
+- **Protocol work and teaching**: the circuit, relay-cell, SENDME and HS v3
+  flows are readable PHP with Tor's test vectors in `tests/`.
+- **Policy front-ends**: embed the client in an application that needs to fetch
+  onion content but must enforce its own allow-list, size limits and timeouts.
+
+---
+
+## File layout
+
+```
+autoload.php                 PSR-4 autoloader
+bridge.php                   web gateway
+src/
+├── Bridge/Rewriter.php      link, form, CSS and cookie rewriting
+├── Cell/                    cell framing and relay commands
+├── Circuit/                 circuit creation, extension, streams, flow control
+├── Crypto/                  AES-CTR, Ed25519, Keccak/SHAKE, ntor, RSA verify
+├── Directory/               consensus/microdescriptor fetch, guards, relay info
+├── Link/                    TLS link handshake and authentication
+├── Onion/                   v3 addresses, descriptors, hs-ntor, INTRODUCE1
+├── Transport/               byte streams over TLS and circuits
+├── TorClient.php            high-level API
+└── TorException.php         exception hierarchy
+tests/                       vectors, unit checks and live smoke test
+```
+
+---
+
+*TorPHP speaks the Tor protocol directly. It is independent of the Tor Project
+and is not endorsed by it.*
+" banner into HTML</td>
+            </tr>
+            <tr>
+                <td><code>time_limit</code></td>
+                <td><code>0</code></td>
+                <td>Seconds allowed for the whole request; <code>0</code> removes PHP's limit. A fetch takes 20-60 s, so keep this at <code>0</code> or use at least <code>120</code></td>
+            </tr>
+            <tr>
+                <td><code>deadline</code></td>
+                <td><code>55</code></td>
+                <td>Wall-clock budget for one fetch; the bridge returns <code>504</code> at the budget. Keep it below the host's PHP/FPM cap</td>
+            </tr>
+            <tr>
+                <td><code>diagnostics</code></td>
+                <td><code>true</code></td>
+                <td>Expose the <code>?diag=1</code> environment report</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>What the page does</h3>
+    <ul>
+        <li><strong>Onion-only by default.</strong> Clearnet targets are refused with <code>403</code> unless the policy allows them, so the bridge cannot be used as an open web proxy by accident.</li>
+        <li><strong>Redirects are followed server-side.</strong> If the onion answers <code>301</code>/<code>302</code>/…, the client follows it inside the tunnel and the final page is rendered at the bridge URL. The browser receives <code>200</code>, not a <code>Location</code> header, so it never navigates to another host. Chains are limited to 5 hops and loops are errors.</li>
+        <li><strong>Every hop is re-checked against the allow policy</strong>, so an onion cannot redirect the bridge to the clearnet when clearnet is disabled.</li>
+        <li><strong>Links, forms and CSS are rewritten</strong> to stay on the bridge. Relative links are resolved against the final URL, and clearnet links become bridge URLs that the policy will refuse instead of sending the browser away.</li>
+        <li><strong>Cookies are namespaced per onion</strong> and stripped of attributes that would leak them to other onions.</li>
+        <li><strong>Responses are sandboxed</strong> with <code>Content-Security-Policy: sandbox</code>, and sent with <code>no-store</code>, <code>nosniff</code> and <code>no-referrer</code>.</li>
+        <li><strong>Preset targets.</strong> The landing input offers the DuckDuckGo search onion and the CIA's onion site as click/type-ahead suggestions, while still accepting any URL typed by hand.</li>
+        <li><strong>Guard button.</strong> The landing page has a <em>Change entry guard</em> action. It is a <code>POST</code> (so crawlers and prefetchers cannot trigger it), rate-limited, and changes state on the server only; the page is re-rendered in place with a confirmation. The new guard can never be the one currently in use.</li>
+    </ul>
+
+    <h3>Operating notes</h3>
+    <ul>
+        <li>Run the bridge behind HTTPS if it is exposed to the internet.</li>
+        <li>It has no authentication of its own. For a private gateway, add HTTP basic auth or restrict it at the firewall/reverse proxy.</li>
+        <li>Each proxied request builds fresh circuits; there is no page cache.</li>
+        <li><strong>Raise PHP's execution limit.</strong> Bootstrap, descriptor lookup, rendezvous and the page load all happen in one request and routinely take 20-60 s, well past PHP's web default of 30 s. The bridge calls <code>set_time_limit(0)</code> by default; where a host disables that function, set <code>max_execution_time</code> to at least 120 in <code>php.ini</code>. Otherwise the host kills the request mid-flight and returns a bare <code>500</code>; when the host refuses <code>set_time_limit</code>, the landing page and <code>?diag=1</code> show the effective limit so the cause is visible. The bridge also stops at its own <code>deadline</code> (55 s by default) and answers <code>504</code> with the reason, so a hard host cap does not cut the connection with an empty 500.</li>
+        <li><strong>Use <code>?diag=1</code> when something fails.</strong> It reports the PHP version and limits, whether the required extensions are loaded, cache writability, whether outbound directory TCP is reachable, and the most recent errors (paths masked). Fatals are also converted into a readable <code>500</code> page instead of an empty response.</li>
+        <li>PHP workers block while a request is in flight, so concurrency equals the number of PHP-FPM workers.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="entry-guards">Entry guards</h2>
+    <p>Like Tor, the client pins one entry guard instead of picking a random first hop
+    for every circuit (guard-spec). The guard is chosen from relays with the <code>Guard</code>
+    flag, persisted in <code>guards.json</code>, reused across requests and restarts, and
+    dropped automatically if it cannot be reached.</p>
+
+    <pre><code>$newGuard = $tor-&gt;changeGuard();   // RelayInfo of the new entry guard
+echo $newGuard-&gt;nickname;</code></pre>
+
+    <p>Rotation never returns the current guard. It replaces the remembered sample so
+    new circuits start at the new guard; circuits already open keep their old one.
+    If no alternative guard exists, it throws <code>TorException</code> and leaves the current
+    guard in place.</p>
+
+    <p>Middleware selection and the final hop are still randomized per circuit:</p>
+    <ul>
+        <li>clearnet: random middle (<code>Fast</code>, <code>Running</code>) + random exit (<code>Exit</code>, <code>Fast</code>, <code>Running</code>);</li>
+        <li>onion: the last hop is the responsible HSDir, an introduction point or the rendezvous relay — never a clearnet exit.</li>
+    </ul>
+
+    <p>Unresponsive relays are retried: a circuit that stalls on <code>EXTEND2</code> is rebuilt
+    with a fresh path up to three times before the request fails.</p>
+
+    <hr>
+
+    <h2 id="redirects">Redirects</h2>
+    <p><code>request()</code> returns the raw upstream response by default, including <code>3xx</code>, so
+    callers can decide what to do. Opt in to automatic following:</p>
+
+    <pre><code>$res = $tor-&gt;request($url, [
+    'follow_redirects' =&gt; true,
+    'max_redirects'    =&gt; 5,     // default 5
+]);</code></pre>
+
+    <ul>
+        <li>Follows <code>301</code>, <code>302</code>, <code>303</code>, <code>307</code>, <code>308</code>.</li>
+        <li>Resolves absolute, scheme-relative, root-relative and path-relative <code>Location</code> values, collapsing <code>.</code>/<code>..</code> segments.</li>
+        <li>Rejects loops (<code>Redirect loop detected at …</code>) and chains over the limit.</li>
+        <li>Re-checks <code>allowClearnet</code> on every hop, so an onion cannot silently send the client to the clearnet.</li>
+        <li><code>$res['url']</code> is the final URL.</li>
+    </ul>
+
+    <p><code>bridge.php</code> always enables this, which is why onion pages that redirect
+    <code>http → https</code> render directly in the browser.</p>
+
+    <hr>
+
+    <h2 id="api-reference">API reference</h2>
+
+    <h3><code>Torv3\TorClient</code></h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Method</th>
+                <th>Purpose</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>create(?string $cacheFile = null): self</code></td>
+                <td>New client. <code>null</code> means no on-disk cache</td>
+            </tr>
+            <tr>
+                <td><code>bootstrap(bool $force = false, int $ttl = 3600, bool $hsdirOnly = false): self</code></td>
+                <td>Load or refresh the consensus. <code>hsdirOnly</code> keeps only HSDir relays for onion lookups</td>
+            </tr>
+            <tr>
+                <td><code>request(string $url, array $options = []): array</code></td>
+                <td>Fetch a URL through Tor (see options below)</td>
+            </tr>
+            <tr>
+                <td><code>requestOnion(string $host, int $port, string $path, float $timeout = 30.0, bool $tls = false, ?string $clientAuthKey = null, int $maxBytes = 8388608): array</code></td>
+                <td>Full v3 onion flow when the URL is already split</td>
+            </tr>
+            <tr>
+                <td><code>changeGuard(): RelayInfo</code></td>
+                <td>Rotate the persistent entry guard</td>
+            </tr>
+            <tr>
+                <td><code>relays(): array</code></td>
+                <td>Consensus relays, keyed by fingerprint</td>
+            </tr>
+            <tr>
+                <td><code>consensusParams(): array</code></td>
+                <td>Consensus parameters (<code>hsdir-interval</code>, spreads, …)</td>
+            </tr>
+            <tr>
+                <td><code>relayByFingerprint(string $hex): ?RelayInfo</code></td>
+                <td>Look up one relay</td>
+            </tr>
+            <tr>
+                <td><code>pickPath(int $hops, array $require = [], array $exclude = []): array</code></td>
+                <td>Random path honouring flags</td>
+            </tr>
+            <tr>
+                <td><code>pickHops(int $count, array $flags, array $exclude = []): array</code></td>
+                <td>Random relays with flags</td>
+            </tr>
+            <tr>
+                <td><code>buildCircuit(array $hops): Circuit</code></td>
+                <td>Build a circuit over given relays</td>
+            </tr>
+            <tr>
+                <td><code>responsibleHsdirs(OnionV3 $onion, int $replica): array</code></td>
+                <td>HSDir set for a descriptor replica</td>
+            </tr>
+            <tr>
+                <td><code>relayFromLinkSpecifiers(array $specs): ?RelayInfo</code></td>
+                <td>Map descriptor link specifiers to a relay</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p>Lower-level building blocks are available too: <code>Torv3\Circuit\Circuit</code>,
+    <code>Torv3\Onion\OnionV3</code>, <code>Torv3\Directory\DirectoryFetcher</code>,
+    <code>Torv3\Link\LinkSession</code>, <code>Torv3\Transport\TlsStream</code> and
+    <code>Torv3\Bridge\Rewriter</code>.</p>
+
+    <h3>Request options</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>Meaning</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>allowClearnet</code></td>
+                <td><code>false</code></td>
+                <td>Permit non-<code>.onion</code> hosts</td>
+            </tr>
+            <tr>
+                <td><code>timeout</code></td>
+                <td><code>30.0</code></td>
+                <td>Seconds per network operation</td>
+            </tr>
+            <tr>
+                <td><code>deadline</code></td>
+                <td>none</td>
+                <td>Absolute <code>microtime(true)</code> deadline; every wait is clamped to it and a <code>TorException</code> is thrown when it expires</td>
+            </tr>
+            <tr>
+                <td><code>max_bytes</code></td>
+                <td><code>8388608</code></td>
+                <td>Response body cap (onion and clearnet)</td>
+            </tr>
+            <tr>
+                <td><code>client_auth_key</code></td>
+                <td><code>null</code></td>
+                <td>32 raw bytes or base64 x25519 key for authorized onions</td>
+            </tr>
+            <tr>
+                <td><code>follow_redirects</code></td>
+                <td><code>false</code></td>
+                <td>Follow <code>3xx</code> responses</td>
+            </tr>
+            <tr>
+                <td><code>max_redirects</code></td>
+                <td><code>5</code></td>
+                <td>Redirect chain limit</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Exceptions</h3>
+    <p>All errors derive from <code>Torv3\TorException</code>:
+    <code>TorProtocolException</code>, <code>TorConnectionException</code>, <code>TorDirectoryException</code>,
+    <code>TorNetworkException</code>, <code>TorOnionException</code>, <code>TorStreamException</code>.
+    They carry no relay addresses in the bridge's user-facing messages.</p>
+
+    <hr>
+
+    <h2 id="how-it-works">How it works</h2>
+    <ol>
+        <li><strong>Directory.</strong> Fetch a microdescriptor consensus from the authorities, verify the signatures, parse relays, flags, ntor onion keys and consensus parameters (including <code>hsdir-interval</code>, replica/spread counts and the shared random value). Results are cached as gzipped JSON.</li>
+        <li><strong>Link.</strong> Open a TLS connection to a guard, negotiate a link version (v3/v4, 4-byte circuit IDs), exchange <code>CERTS</code>/<code>AUTH_CHALLENGE</code>/<code>AUTHENTICATE</code>/<code>NETINFO</code> where required.</li>
+        <li><strong>Circuits.</strong> <code>CREATE2</code> with the ntor handshake for the first hop, then <code>RELAY_EXTEND2</code> + ntor for each further hop, sealing/decrypting relay cells per layer. <code>RELAY_EARLY</code> is used only for <code>EXTEND</code>. Flow control uses authenticated SENDME v1 cells, and streams are multiplexed on the circuit.</li>
+        <li><strong>Streams.</strong> <code>RELAY_BEGIN</code> for TCP, <code>RELAY_BEGIN_DIR</code> for directory connections. HTTP/1.0 is spoken directly over the stream; <code>https://</code> wraps the stream in TLS.</li>
+        <li><strong>v3 onion services.</strong>
+            <ul>
+                <li>Decode the 56-character address (pubkey, checksum, version).</li>
+                <li>Blind the identity key for the current time period and derive the subcredential.</li>
+                <li>Compute the HSDir ring index from the shared random value (falling back to Tor's deterministic disaster value when the consensus has none), pick the responsible HSDirs and fetch the descriptor by its blinded-key path.</li>
+                <li>Verify the descriptor's Ed25519 certificate and signature, decrypt the superencrypted and encrypted layers, and parse introduction points.</li>
+                <li><code>ESTABLISH_RENDEZVOUS</code>, send <code>INTRODUCE1</code> (hs-ntor) to an introduction point, wait for <code>RENDEZVOUS2</code>, derive the service keys, then <code>BEGIN</code> the stream to the onion service and speak HTTP over it.</li>
+            </ul>
+        </li>
+        <li><strong>Clearnet.</strong> A three-hop circuit ending at a random exit relay, with normal certificate verification for <code>https://</code>.</li>
+    </ol>
+
+    <p>Every request builds new circuits; nothing is shared between requests except the consensus cache and the guard choice.</p>
+
+    <hr>
+
+    <h2 id="testing">Testing</h2>
+    <p>Offline vectors (no network needed):</p>
+    <pre><code>php tests/run.php            # main suite: 85 checks
+php tests/guard_test.php     # guard stickiness and rotation
+php tests/bridge_test.php    # URL/cookie rewriting rules
+php tests/srv_test.php       # disaster shared-random value
+php tests/onion_vector_test.php  # Tor's own HS vectors
+php tests/tls_test.php       # TLS transport (uses tests/tls_echo_server.php)</code></pre>
+
+    <p>Live network smoke test (downloads a consensus and builds circuits):</p>
+    <pre><code>php tests/live_smoke.php</code></pre>
+
+    <p>A full live check of both paths looks like this:</p>
+    <pre><code>$tor = TorClient::create('/tmp/tor-cache.json')-&gt;bootstrap();
+
+$onion = $tor-&gt;request('http://duckduckgogg…onion/', [
+    'follow_redirects' =&gt; true,
+    'timeout' =&gt; 60,
+]);
+echo $onion['status'], ' ', strlen($onion['body']), "\n";   // 200, ~230 KB
+
+$web = $tor-&gt;request('http://example.com/', [
+    'allowClearnet' =&gt; true,
+    'timeout' =&gt; 30,
+]);
+echo $web['status'], "\n";                                  // 200</code></pre>
+
+    <p>Live results depend on relay availability. Expect occasional multi-second circuit setup; the built-in retry handles one dead middle or exit.</p>
+
+    <hr>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Symptom</th>
+                <th>Cause / fix</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>403</code> from the bridge</td>
+                <td>Target is not allowed by <code>$config['allow']</code>; add a suffix or <code>'*'</code> deliberately</td>
+            </tr>
+            <tr>
+                <td>Bare <code>500</code> or empty response</td>
+                <td>The host killed the request at its PHP execution limit (default 30 s, a fetch needs 20-60 s). Raise <code>max_execution_time</code> / keep <code>set_time_limit</code> enabled, then open <code>?diag=1</code></td>
+            </tr>
+            <tr>
+                <td><code>Bridge error</code> page</td>
+                <td>A fatal was turned into a readable 500; <code>?diag=1</code> shows the logged cause (missing extension, unwritable cache, blocked egress)</td>
+            </tr>
+            <tr>
+                <td><code>504</code> "did not finish within the bridge's … budget"</td>
+                <td>The fetch hit <code>deadline</code>; the onion is slow or the host blocks Tor relay ports. Raise <code>deadline</code> only if the host's PHP cap is higher</td>
+            </tr>
+            <tr>
+                <td><code>404</code> from every HSDir</td>
+                <td>Onion service offline, or the network consensus has no shared random value (see below)</td>
+            </tr>
+            <tr>
+                <td><code>Could not download the descriptor … 404</code></td>
+                <td>Period/SRV mismatch or unpublished service; retry after the next consensus</td>
+            </tr>
+            <tr>
+                <td><code>Timed out waiting for relay command 15</code></td>
+                <td>A middle relay did not answer <code>EXTEND2</code>; the client retries with a new path, increase <code>timeout</code> if it persists</td>
+            </tr>
+            <tr>
+                <td><code>Unable to open TLS connection …</code></td>
+                <td>Guard/relay unreachable from this host; check egress firewall and ORPort reachability</td>
+            </tr>
+            <tr>
+                <td><code>Descriptor MAC verification failed</code></td>
+                <td>Wrong key material or a corrupt cached consensus — clear <code>cache/</code> and retry</td>
+            </tr>
+            <tr>
+                <td><code>No alternative entry guard is available</code></td>
+                <td>Consensus has too few usable <code>Guard</code> relays; refresh with <code>bootstrap(true)</code></td>
+            </tr>
+            <tr>
+                <td>Clearnet blocked</td>
+                <td>Pass <code>allowClearnet =&gt; true</code> (library) or adjust the bridge policy</td>
+            </tr>
+            <tr>
+                <td><code>Permission denied</code> on cache</td>
+                <td>Make the cache directory writable by the PHP user</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p><strong>Shared-random outages.</strong> Tor's hidden-service directory uses a shared random value published in the 00:00 UTC consensus. If the network's shared-random run fails, the consensus can carry no current/previous value. The client follows Tor and falls back to the deterministic disaster value, but onion descriptors may be missing network-wide until a later round completes. Clearnet circuits are unaffected. This is a network condition, not a client error.</p>
+
+    <hr>
+
+    <h2 id="security-notes-and-limitations">Security notes and limitations</h2>
+    <ul>
+        <li><strong>Not audited.</strong> Treat this as experimental software; review it before using it where anonymity is critical.</li>
+        <li><strong>Client, not a service.</strong> It fetches onion services; it cannot host one.</li>
+        <li><strong>v3 only.</strong> 16-character v2 addresses are not supported.</li>
+        <li><strong>No SOCKS/HTTP proxy interface.</strong> Use <code>TorClient</code> directly or <code>bridge.php</code>.</li>
+        <li><strong>Blocking I/O.</strong> Each PHP worker handles one request at a time.</li>
+        <li><strong>Onion TLS</strong> accepts self-signed certificates because the onion address authenticates the endpoint (as Tor Browser does). Clearnet TLS is verified against the system CA store.</li>
+        <li><strong>Client authorization</strong> can consume an existing x25519 key; it does not generate or manage authorized-client key pairs.</li>
+        <li><strong>The bridge operator can see destinations.</strong> It is a gateway, not a anonymity network for its users. Add authentication/TLS and rate limits before exposing it.</li>
+        <li><strong>No traffic-analysis resistance beyond Tor's own.</strong> Circuit timing and sizes are ordinary Tor traffic, but the PHP implementation is not hardened against a local observer.</li>
+        <li><strong>No license file is bundled</strong> with this archive; add one before redistributing.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="use-cases">Use cases</h2>
+    <ul>
+        <li><strong>Onion access on shared hosting</strong> where installing <code>tor</code>, a daemon or a SOCKS proxy is impossible — only PHP and outbound TCP are needed.</li>
+        <li><strong>Server-side onion fetching</strong>: mirrors, archives, feed readers, uptime and content monitoring, or scheduled jobs that read <code>.onion</code> pages.</li>
+        <li><strong>A team or browser gateway</strong>: let people read onion sites from an ordinary browser through <code>bridge.php</code>, with an onion-only policy and per-IP limits.</li>
+        <li><strong>CI and integration tests</strong> for onion services: assert that a descriptor is published and the service answers, without a tor binary in the image.</li>
+        <li><strong>Protocol work and teaching</strong>: the circuit, relay-cell, SENDME and HS v3 flows are readable PHP with Tor's test vectors in <code>tests/</code>.</li>
+        <li><strong>Policy front-ends</strong>: embed the client in an application that needs to fetch onion content but must enforce its own allow-list, size limits and timeouts.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="file-layout">File layout</h2>
+    <pre><code>autoload.php                 PSR-4 autoloader
+bridge.php                   web gateway
+src/
+├── Bridge/Rewriter.php      link, form, CSS and cookie rewriting
+├── Cell/                    cell framing and relay commands
+├── Circuit/                 circuit creation, extension, streams, flow control
+├── Crypto/                  AES-CTR, Ed25519, Keccak/SHAKE, ntor, RSA verify
+├── Directory/               consensus/microdescriptor fetch, guards, relay info
+├── Link/                    TLS link handshake and authentication
+├── Onion/                   v3 addresses, descriptors, hs-ntor, INTRODUCE1
+├── Transport/               byte streams over TLS and circuits
+├── TorClient.php            high-level API
+└── TorException.php         exception hierarchy
+tests/                       vectors, unit checks and live smoke test</code></pre>
+
+    <hr>
+
+    <footer>
+        <p>TorPHP speaks the Tor protocol directly. It is independent of the Tor Project and is not endorsed by it.</p>
+    </footer>
+</div>
+
+</body>
+</html>

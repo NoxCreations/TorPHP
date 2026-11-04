@@ -1,0 +1,1 @@
+Rename bridge.php to index.php if being put on a dedicated subdomain
